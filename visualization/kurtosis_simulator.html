@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>峰度(Kurtosis)交互式模拟器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            font-family: '楷体', 'Times New Roman', serif; 
+            max-width: 800px; 
+            margin: 30px auto; 
+            padding: 20px; 
+            text-align: center; 
+            background-color: #ffffff;
+        }
+        h2 { color: #2c3e50; }
+        .slider-container { 
+            margin: 40px 0; 
+            padding: 25px; 
+            background-color: #f8f9fa; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        input[type="range"] { 
+            width: 80%; 
+            cursor: pointer;
+        }
+        .conclusion { 
+            font-size: 1.15em; 
+            font-weight: bold; 
+            margin-top: 20px; 
+            min-height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>数据分布峰度 (Kurtosis) 交互模拟器</h2>
+    
+    <canvas id="kurtosisChart" height="120"></canvas>
+
+    <div class="slider-container">
+        <label for="kurtosisSlider" style="font-size: 1.2em;">
+            <strong>调整峰度系数 (Kurtosis): <span id="kurtValue">0.0</span></strong>
+        </label><br><br>
+        <input type="range" id="kurtosisSlider" min="-1.5" max="3.0" step="0.1" value="0">
+        
+        <div class="conclusion" id="conclusionText" style="color: #333;">
+            当前分布与正态分布形状一致，极端风险符合标准预期。
+        </div>
+    </div>
+
+    <script>
+        // 利用数学函数近似模拟峰度变化对分布形状的影响
+        function generateDistributionData(kurtosis) {
+            let p = 2; // p=2 对应标准正态分布
+            
+            // 调整形状参数 p 以模拟峰度变动
+            if (kurtosis > 0) {
+                p = 2 - (kurtosis * 0.35); // 尖峰厚尾 (p < 2)
+            } else {
+                p = 2 - (kurtosis * 2.0);  // 平顶薄尾 (p > 2)
+            }
+
+            let data = [];
+            let labels = [];
+            let sum = 0;
+
+            // 预计算积分面积，用于概率密度归一化
+            for(let x = -4; x <= 4; x += 0.1) {
+                sum += Math.exp(-Math.pow(Math.abs(x), p));
+            }
+
+            // 生成 X 轴和对应的 Y 轴概率密度数据
+            for(let x = -4; x <= 4; x += 0.1) {
+                labels.push(x.toFixed(1));
+                let y = Math.exp(-Math.pow(Math.abs(x), p)) / sum;
+                data.push(y);
+            }
+            return {labels, data};
+        }
+
+        // 初始化数据
+        const normalData = generateDistributionData(0);
+        const ctx = document.getElementById('kurtosisChart').getContext('2d');
+
+        // 构建 Chart.js 实例
+        let chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: normalData.labels,
+                datasets: [
+                    {
+                        label: '实际数据分布 (动态)',
+                        data: normalData.data,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '正态分布基准 (峰度 = 0)',
+                        data: normalData.data,
+                        borderColor: '#7f8c8d',
+                        borderWidth: 2,
+                        borderDash: [5, 5], // 虚线效果
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { 
+                        display: false, // 隐藏Y轴刻度，突出形状对比
+                        max: 0.12       // 锁定Y轴最高点，防止图形自动缩放掩盖形变
+                    }, 
+                    x: { ticks: { maxTicksLimit: 11, font: { family: 'Times New Roman' } } }
+                },
+                animation: { duration: 0 }, // 设置为0使滑块拖动时图形实时无延迟响应
+                plugins: {
+                    legend: { labels: { font: { family: '楷体', size: 14 } } }
+                }
+            }
+        });
+
+        // 获取 DOM 元素
+        const slider = document.getElementById('kurtosisSlider');
+        const kurtValue = document.getElementById('kurtValue');
+        const conclusionText = document.getElementById('conclusionText');
+
+        // 绑定滑块拖动事件
+        slider.addEventListener('input', function() {
+            const val = parseFloat(this.value);
+            kurtValue.innerText = val.toFixed(1);
+
+            // 动态更新商业结论文本与颜色
+            if (val === 0) {
+                conclusionText.innerText = '当前分布与正态分布形状一致，极端风险符合标准预期。';
+                conclusionText.style.color = '#333';
+            } else if (val > 0) {
+                conclusionText.innerText = '尖峰厚尾特征：极端事件（黑天鹅）发生概率大于正态分布预期，需警惕尾部风险。';
+                conclusionText.style.color = '#c0392b';
+            } else {
+                conclusionText.innerText = '平顶薄尾特征：数据分布较均匀，极端事件发生概率极低。';
+                conclusionText.style.color = '#27ae60';
+            }
+
+            // 重新计算并更新图表
+            const newData = generateDistributionData(val);
+            chart.data.datasets[0].data = newData.data;
+            chart.update();
+        });
+    </script>
+
+</body>
+</html>

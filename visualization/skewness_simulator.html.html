@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>偏度(Skewness)交互式模拟器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            font-family: '楷体', 'Times New Roman', serif; 
+            max-width: 800px; 
+            margin: 30px auto; 
+            padding: 20px; 
+            text-align: center; 
+            background-color: #ffffff;
+        }
+        h2 { color: #2c3e50; }
+        .slider-container { 
+            margin: 40px 0; 
+            padding: 25px; 
+            background-color: #f8f9fa; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        input[type="range"] { 
+            width: 80%; 
+            cursor: pointer;
+        }
+        .conclusion { 
+            font-size: 1.15em; 
+            font-weight: bold; 
+            margin-top: 20px; 
+            min-height: 50px;
+            text-align: left;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>数据分布偏度 (Skewness) 交互模拟器</h2>
+    
+    <canvas id="skewChart" height="120"></canvas>
+
+    <div class="slider-container">
+        <label for="skewSlider" style="font-size: 1.2em;">
+            <strong>调整偏度系数 (Skewness): <span id="skewValue">0.0</span></strong>
+        </label><br><br>
+        <input type="range" id="skewSlider" min="-2.0" max="2.0" step="0.1" value="0">
+        
+        <div class="conclusion" id="conclusionText" style="color: #333;">
+            【对称分布】偏度=0。峰居中，左右均衡。典型场景：标准工业零件的尺寸误差分布。
+        </div>
+    </div>
+
+    <script>
+        // 误差函数近似 (Abramowitz and Stegun approximation)
+        function erf(x) {
+            const sign = (x >= 0) ? 1 : -1;
+            x = Math.abs(x);
+            const a1 =  0.254829592;
+            const a2 = -0.284496736;
+            const a3 =  1.421413741;
+            const a4 = -1.453152027;
+            const a5 =  1.061405429;
+            const p  =  0.3275911;
+            const t = 1.0 / (1.0 + p * x);
+            const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+            return sign * y;
+        }
+
+        // 标准正态分布 PDF
+        function normalPDF(x) {
+            return (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+        }
+
+        // 标准正态分布 CDF
+        function normalCDF(x) {
+            return 0.5 * (1 + erf(x / Math.sqrt(2)));
+        }
+
+        // 偏态正态分布 PDF (引入形状参数 alpha)
+        function skewNormalPDF(x, alpha) {
+            return 2 * normalPDF(x) * normalCDF(alpha * x);
+        }
+
+        // 生成偏态分布数据
+        function generateSkewData(skewValue) {
+            // 将滑块值放大为 alpha 形状参数以增强视觉形变效果
+            let alpha = skewValue * 3.5; 
+            
+            let data = [];
+            let labels = [];
+
+            // 设定 X 轴范围
+            for(let x = -4; x <= 4; x += 0.1) {
+                labels.push(x.toFixed(1));
+                let y = skewNormalPDF(x, alpha);
+                data.push(y);
+            }
+            return {labels, data};
+        }
+
+        // 初始化数据
+        const baseData = generateSkewData(0);
+        const ctx = document.getElementById('skewChart').getContext('2d');
+
+        // 构建 Chart.js 实例
+        let chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: baseData.labels,
+                datasets: [
+                    {
+                        label: '实际数据频数分布 (动态)',
+                        data: baseData.data,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        label: '对称基准 (偏度 = 0)',
+                        data: baseData.data,
+                        borderColor: '#7f8c8d',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { 
+                        display: false, // 隐藏Y轴刻度
+                        max: 0.7        // 锁定Y轴最高点，防止图形自动缩放
+                    }, 
+                    x: { ticks: { maxTicksLimit: 11, font: { family: 'Times New Roman' } } }
+                },
+                animation: { duration: 0 }, 
+                plugins: {
+                    legend: { labels: { font: { family: '楷体', size: 14 } } }
+                }
+            }
+        });
+
+        // 获取 DOM 元素
+        const slider = document.getElementById('skewSlider');
+        const skewValueText = document.getElementById('skewValue');
+        const conclusionText = document.getElementById('conclusionText');
+
+        // 绑定滑块拖动事件
+        slider.addEventListener('input', function() {
+            const val = parseFloat(this.value);
+            skewValueText.innerText = (val > 0 ? "+" : "") + val.toFixed(1);
+
+            // 动态更新商业解读文本与颜色
+            if (val === 0) {
+                conclusionText.innerHTML = '<strong>【对称分布】偏度=0。</strong>峰居中，左右均衡。<br><span style="font-size:0.9em; color:#666;">典型场景：标准工业零件的尺寸误差分布。</span>';
+                conclusionText.style.borderLeft = "6px solid #7f8c8d";
+                chart.data.datasets[0].borderColor = '#3498db';
+                chart.data.datasets[0].backgroundColor = 'rgba(52, 152, 219, 0.15)';
+            } else if (val > 0) {
+                conclusionText.innerHTML = '<span style="color:#c0392b"><strong>【正偏 / 右偏态】偏度>0。</strong></span>峰在左，长拖尾在右。<br><span style="font-size:0.9em; color:#666;">典型场景：国民财富分布。少数超级富豪（长尾）拉高了平均数，导致均值大于中位数。</span>';
+                conclusionText.style.borderLeft = "6px solid #c0392b";
+                chart.data.datasets[0].borderColor = '#c0392b';
+                chart.data.datasets[0].backgroundColor = 'rgba(192, 57, 43, 0.15)';
+            } else {
+                conclusionText.innerHTML = '<span style="color:#27ae60"><strong>【负偏 / 左偏态】偏度<0。</strong></span>峰在右，长拖尾在左。<br><span style="font-size:0.9em; color:#666;">典型场景：大公司的产品合格测试得分。大部分得分很高，但极少数次品（长尾）拉低了整体均值。</span>';
+                conclusionText.style.borderLeft = "6px solid #27ae60";
+                chart.data.datasets[0].borderColor = '#27ae60';
+                chart.data.datasets[0].backgroundColor = 'rgba(39, 174, 96, 0.15)';
+            }
+
+            // 重新计算并更新图表
+            const newData = generateSkewData(val);
+            chart.data.datasets[0].data = newData.data;
+            chart.update();
+        });
+    </script>
+
+</body>
+</html>

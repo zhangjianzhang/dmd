@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>目标良率与公差倒推决策模拟器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .desc {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .control-panel {
+            background: #f1f2f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+        }
+        label {
+            font-weight: bold;
+            font-size: 15px;
+            color: #2c3e50;
+            width: 200px;
+        }
+        input[type="range"] {
+            flex-grow: 1;
+            margin: 0 15px;
+            cursor: pointer;
+        }
+        .val-display {
+            font-weight: bold;
+            color: #1976d2;
+            min-width: 80px;
+            text-align: right;
+            font-size: 1.1em;
+        }
+        .result-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        .result-card {
+            background-color: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .result-card.warning {
+            background-color: #fff3e0;
+            border-color: #ff9800;
+        }
+        .result-title {
+            font-size: 14px;
+            color: #555;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .result-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        .result-card.warning .result-value {
+            color: #e65100;
+        }
+        .explanation {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎯 目标良率与公差倒推决策模拟器 (反函数实战)</h2>
+    <div class="desc">
+        <b>业务背景：</b> 医疗体外诊断试剂产线，平均注液量固定为 <b>μ = 25 微升</b>。<br>
+        <b>博弈视角：</b> 老总决定良率目标（面积），品控根据设备精度推算报警公差（边界）。尝试滑动调整，感受设备精度(σ)对公差窗口的挤压。
+    </div>
+    
+    <div class="control-panel">
+        <div class="control-row">
+            <label>目标合格率 (中心面积):</label>
+            <input type="range" id="yieldSlider" min="50" max="99.9" value="95.0" step="0.1">
+            <span class="val-display" id="yieldVal">95.0%</span>
+        </div>
+        <div class="control-row">
+            <label>设备精度标准差 (σ):</label>
+            <input type="range" id="sdSlider" min="0.1" max="0.6" value="0.3" step="0.05">
+            <span class="val-display" id="sdVal">0.30</span>
+        </div>
+    </div>
+
+    <canvas id="invChart" width="800" height="350"></canvas>
+
+    <div class="result-panel">
+        <div class="result-card">
+            <div class="result-title">报警下限 (LSL)</div>
+            <div class="result-value" id="lslDisplay">24.41</div>
+            <div class="explanation">低于此值，试剂量不足</div>
+        </div>
+        <div class="result-card warning">
+            <div class="result-title">公差浮动窗口 (±Δ)</div>
+            <div class="result-value" id="deltaDisplay">±0.59</div>
+            <div class="explanation">留给产线工人的操作空间</div>
+        </div>
+        <div class="result-card">
+            <div class="result-title">报警上限 (USL)</div>
+            <div class="result-value" id="uslDisplay">25.59</div>
+            <div class="explanation">高于此值，原料成本浪费</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('invChart').getContext('2d');
+    let invChart;
+    const mean = 25.0; // 固定均值为 25
+
+    const els = {
+        yieldSlider: document.getElementById('yieldSlider'),
+        sdSlider: document.getElementById('sdSlider'),
+        yieldVal: document.getElementById('yieldVal'),
+        sdVal: document.getElementById('sdVal'),
+        lslDisplay: document.getElementById('lslDisplay'),
+        uslDisplay: document.getElementById('uslDisplay'),
+        deltaDisplay: document.getElementById('deltaDisplay')
+    };
+
+    function updateSimulator() {
+        // 1. 获取滑块输入值
+        let targetYieldPct = parseFloat(els.yieldSlider.value);
+        let targetYield = targetYieldPct / 100;
+        let sd = parseFloat(els.sdSlider.value);
+
+        // 更新界面显示
+        els.yieldVal.innerText = targetYieldPct.toFixed(1) + "%";
+        els.sdVal.innerText = sd.toFixed(2);
+
+        // 2. 利用正态反函数计算公差边界
+        // 中间良率为 targetYield，则单侧尾部面积为 (1 - targetYield) / 2
+        let alpha = (1 - targetYield) / 2;
+        
+        // 调用 jStat 的反函数: NORM.INV(probability, mean, sd)
+        let lsl = jStat.normal.inv(alpha, mean, sd);
+        let usl = jStat.normal.inv(1 - alpha, mean, sd);
+        let delta = usl - mean;
+
+        // 更新下方结果卡片
+        els.lslDisplay.innerText = lsl.toFixed(2);
+        els.uslDisplay.innerText = usl.toFixed(2);
+        els.deltaDisplay.innerText = "±" + delta.toFixed(2);
+
+        // 3. 准备绘图数据
+        let labels = [];
+        let dataPDF = [];
+        let dataFill = [];
+        let lineLSL = [];
+        let lineUSL = [];
+
+        // 固定 X 轴可视范围，保证动态比较时坐标轴不乱跳
+        let minX = 23;
+        let maxX = 27;
+        let step = 0.02;
+
+        for (let x = minX; x <= maxX; x += step) {
+            let curX = parseFloat(x.toFixed(2));
+            labels.push(curX);
+            
+            let y = jStat.normal.pdf(curX, mean, sd);
+            dataPDF.push(y);
+
+            // 填充中间合格良率面积
+            if (curX >= lsl && curX <= usl) {
+                dataFill.push(y);
+            } else {
+                dataFill.push(null);
+            }
+
+            // 绘制垂直界限
+            if (Math.abs(curX - lsl) <= step/2) {
+                lineLSL.push({x: curX, y: y});
+            } else {
+                lineLSL.push(null);
+            }
+            if (Math.abs(curX - usl) <= step/2) {
+                lineUSL.push({x: curX, y: y});
+            } else {
+                lineUSL.push(null);
+            }
+        }
+
+        // 4. 渲染或更新图表
+        if (invChart) {
+            invChart.data.labels = labels;
+            invChart.data.datasets[0].data = dataPDF;
+            invChart.data.datasets[1].data = dataFill;
+            invChart.update();
+        } else {
+            invChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '概率密度曲线 (设备注液稳定性)',
+                            data: dataPDF,
+                            borderColor: '#78909c',
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0,
+                            zIndex: 3
+                        },
+                        {
+                            label: '目标合格率面积 (良率)',
+                            data: dataFill,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(76, 175, 80, 0.4)', // 绿色半透明
+                            fill: 'origin',
+                            pointRadius: 0,
+                            spanGaps: false,
+                            zIndex: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { display: true, title: { display: true, text: '概率密度' }, min: 0, max: 1.5 },
+                        x: { 
+                            title: { display: true, text: '注液量 (微升)' },
+                            ticks: { maxTicksLimit: 15 }
+                        }
+                    },
+                    plugins: { tooltip: { enabled: false }, legend: { position: 'top' } }
+                }
+            });
+        }
+    }
+
+    // 绑定事件
+    els.yieldSlider.addEventListener('input', updateSimulator);
+    els.sdSlider.addEventListener('input', updateSimulator);
+
+    // 初始渲染
+    updateSimulator();
+</script>
+
+</body>
+</html>

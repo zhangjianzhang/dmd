@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据、模型与决策 · MBA课程</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -92,6 +93,12 @@
         .ch-topics{list-style:none;padding:0;margin:0;}
         .ch-topics li{font-size:13px;color:#4b5563;padding:3px 0;display:flex;gap:6px;align-items:flex-start;}
         .ch-topics li::before{content:'›';color:var(--accent);font-weight:700;flex-shrink:0;margin-top:1px;}
+
+        /* ── CHAPTER SLIDES ── */
+        .ch-slides{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+        .ch-slides-lbl{font-size:11.5px;color:var(--text-muted);margin-right:2px;}
+        .ch-slide-link{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--primary-lt);background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 11px;text-decoration:none;transition:background .2s,color .2s;}
+        .ch-slide-link:hover{background:#dbeafe;color:var(--primary);}
 
         /* ── TOOLS ── */
         .tool-card{border-radius:14px;border:1px solid var(--border);background:var(--bg-card);padding:24px 28px;box-shadow:var(--shadow-sm);height:100%;transition:box-shadow .25s,transform .25s;}
@@ -281,6 +288,11 @@
                         <li>商业数据处理的道德准则</li>
                         <li>实践项目：销售业绩仪表盘搭建</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" target="_blank" href="./slides/1-intro.pdf">课件一</a>
+                        <a class="ch-slide-link" target="_blank" href="./slides/2-probability.pdf">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -295,6 +307,11 @@
                         <li>用统计语言清晰讲述商业故事</li>
                         <li>案例分析：客户画像与产品分析</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -309,6 +326,11 @@
                         <li>预测的陷阱：评估与解读预测误差</li>
                         <li>实践项目：季度销售额预测模型构建</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -323,6 +345,11 @@
                         <li>资源影子价格的商业内涵</li>
                         <li>经典案例：公司产品组合优化</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -337,6 +364,11 @@
                         <li>案例一：多工厂多仓库最低成本配送方案</li>
                         <li>案例二：员工高效分配到不同任务的指派问题</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -351,6 +383,11 @@
                         <li>信息的价值：是否值得花钱购买更多信息</li>
                         <li>案例分析：公司新产品开发决策</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -365,6 +402,11 @@
                         <li>与行业顶尖专家互动答疑</li>
                         <li>了解真实世界的数据应用与职业发展路径</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -379,6 +421,11 @@
                         <li>各组需分析数据、预测趋势、优化决策并展示</li>
                         <li>综合商业模拟竞赛答辩</li>
                     </ul>
+                    <div class="ch-slides">
+                        <span class="ch-slides-lbl"><i class="bi bi-download me-1"></i>课件</span>
+                        <a class="ch-slide-link" href="#">课件一</a>
+                        <a class="ch-slide-link" href="#">课件二</a>
+                    </div>
                 </div>
             </div>
 
@@ -393,25 +440,32 @@
 
         <!-- Tools -->
         <div class="row g-3 mb-4">
-            <div class="col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="tool-card">
-                    <div class="tool-icon" style="background:#f3e8ff"><i class="bi bi-robot" style="color:#7c3aed;font-size:26px"></i></div>
-                    <h6>大模型智能体</h6>
+                    <div class="tool-icon" style="background:linear-gradient(135deg,#d97706,#f59e0b)"><i class="bi bi-cpu" style="color:#fff"></i></div>
+                    <h6>QoderWork</h6>
                     <p>以自然语言交互的方式进行快速、高效的数据分析与可视化，大幅降低工具门槛，让学生更聚焦于商业洞察与决策本身。</p>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="tool-card">
                     <div class="tool-icon" style="background:#e8f5e9"><i class="bi bi-file-earmark-spreadsheet" style="color:#2e7d32;font-size:26px"></i></div>
                     <h6>Microsoft Excel</h6>
                     <p>课程主要分析工具，用于数据探索、图表制作、预测建模与优化求解，贯穿全程所有章节。</p>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="tool-card">
-                    <div class="tool-icon" style="background:#e3f2fd"><i class="bi bi-calculator" style="color:#1565c0;font-size:26px"></i></div>
-                    <h6>Excel 规划求解（Solver）</h6>
-                    <p>Excel 内置优化插件，用于求解线性规划、运输问题、指派问题等规定性分析模型。</p>
+                    <div class="tool-icon" style="background:linear-gradient(135deg,#0ea5a0,#0891b2)"><i class="bi bi-globe2" style="color:#fff"></i></div>
+                    <h6>Tabbit 浏览器</h6>
+                    <p>专为 AI 时代设计的智能浏览器，内置多模型对话、网页划词解释、资料收集整理等功能，适合在调研文献和浏览学习资料时辅助分析。</p>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="tool-card" style="text-align:center;">
+                    <img src="./imgs/QRcode.JPG" alt="公众号二维码" style="width:110px;height:110px;border-radius:10px;margin:0 auto 14px;display:block;object-fit:contain;">
+                    <h6>商科权威论文科普</h6>
+                    <p>每日推送基于UTD 24期刊最新论文制作的学术科普文章，让顶尖管理学研究触手可及。</p>
                 </div>
             </div>
         </div>

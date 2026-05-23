@@ -192,4 +192,82 @@
 
         for (let x = 0; x <= maxX; x += 0.5) {
             labels.push(x);
-            dataPDF.push(triangularPDF(
+            dataPDF.push(triangularPDF(x, a, b, c));
+        }
+
+        // 获取均值处的Y值，用于画垂直指示线
+        let meanY = triangularPDF(mean, a, b, c);
+
+        if (triChart) {
+            triChart.data.labels = labels;
+            triChart.data.datasets[0].data = dataPDF;
+            // 更新均值线数据点
+            triChart.data.datasets[1].data = [{x: mean, y: 0}, {x: mean, y: meanY > 0 ? meanY : 0.1}];
+            triChart.update();
+        } else {
+            triChart = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: '概率密度曲线 f(x)',
+                            data: dataPDF,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                            borderWidth: 2,
+                            fill: true,
+                            pointRadius: 0,
+                            tension: 0 // 三角分布必须是直的折线
+                        },
+                        {
+                            type: 'line',
+                            label: '均值 (期望值)',
+                            data: [{x: mean, y: 0}, {x: mean, y: meanY > 0 ? meanY : 0.1}],
+                            borderColor: '#e74c3c',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 4,
+                            pointBackgroundColor: '#e74c3c',
+                            showLine: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 }, // 关闭动画实现实时拖动反馈
+                    scales: {
+                        y: {
+                            display: true,
+                            title: { display: true, text: '概率密度 f(x)' },
+                            min: 0,
+                            suggestedMax: 0.15
+                        },
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: '随机变量取值 x' },
+                            min: 0,
+                            max: 50,
+                            ticks: { stepSize: 5 }
+                        }
+                    },
+                    plugins: {
+                        tooltip: { enabled: false },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+    }
+
+    // 绑定所有的滑块事件
+    document.getElementById('sliderA').addEventListener('input', updateSimulator);
+    document.getElementById('sliderB').addEventListener('input', updateSimulator);
+    document.getElementById('sliderC').addEventListener('input', updateSimulator);
+
+    // 初始化加载
+    updateSimulator();
+</script>
+
+</body>
+</html>

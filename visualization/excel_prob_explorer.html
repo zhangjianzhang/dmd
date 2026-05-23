@@ -1,0 +1,436 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 概率函数映射双向探索器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+        .control-panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+        label {
+            font-weight: bold;
+            font-size: 14px;
+            color: #495057;
+        }
+        select, input[type="number"] {
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            background: #fff;
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+        }
+        .radio-group label {
+            cursor: pointer;
+            font-weight: normal;
+        }
+        .slider-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            background: #e3f2fd;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #bbdefb;
+        }
+        .slider-container input[type="range"] {
+            flex-grow: 1;
+            margin: 0 15px;
+            cursor: pointer;
+        }
+        .val-display {
+            font-weight: bold;
+            color: #1976d2;
+            min-width: 60px;
+            text-align: right;
+        }
+        .df-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .result-panel {
+            background-color: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .result-panel.inv-mode {
+            background-color: #fff3e0;
+            border-color: #ff9800;
+        }
+        .excel-formula {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 10px;
+            background: #fff;
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .result-panel.inv-mode .excel-formula {
+            color: #e65100;
+        }
+        .explanation {
+            font-size: 14px;
+            color: #555;
+        }
+        .highlight-text {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔄 Excel 概率函数双向探索器 (DIST ⇄ INV)</h2>
+    
+    <div class="control-panel">
+        <div class="control-row">
+            <div>
+                <label>选择分布类型：</label>
+                <select id="distType">
+                    <option value="norm">标准正态分布 (Z)</option>
+                    <option value="t">t 分布</option>
+                    <option value="f">F 分布</option>
+                    <option value="chisq">卡方分布 (χ²)</option>
+                </select>
+            </div>
+            
+            <div class="radio-group">
+                <label><input type="radio" name="calcMode" value="dist" checked> 概率函数 (DIST): 已知数值 X 求面积</label>
+                <label><input type="radio" name="calcMode" value="inv"> 反函数 (INV): 已知面积 P 求数值</label>
+            </div>
+        </div>
+
+        <div class="control-row" id="dfContainer" style="display: none;">
+            <div class="df-group" id="df1Group" style="display: none;">
+                <label id="df1Label">自由度 (df):</label>
+                <input type="number" id="df1" value="10" min="1" max="100" step="1" style="width: 70px;">
+            </div>
+            <div class="df-group" id="df2Group" style="display: none;">
+                <label>分母自由度 (df2):</label>
+                <input type="number" id="df2" value="15" min="1" max="100" step="1" style="width: 70px;">
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="slider-container" id="distSliderGroup">
+                <label>滑动数值 X (分位点):</label>
+                <input type="range" id="xSlider" min="-4" max="4" value="1.96" step="0.01">
+                <span class="val-display" id="xValDisplay">1.96</span>
+            </div>
+            
+            <div class="slider-container" id="invSliderGroup" style="display: none; background: #fff3e0; border-color: #ffe0b2;">
+                <label>滑动累积概率 P (面积):</label>
+                <input type="range" id="pSlider" min="0.001" max="0.999" value="0.95" step="0.001">
+                <span class="val-display" id="pValDisplay" style="color: #e65100;">95.0%</span>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="probChart" width="800" height="300"></canvas>
+
+    <div class="result-panel" id="resultPanel">
+        <div class="excel-formula" id="excelFormula">=NORM.S.DIST(1.96, TRUE)</div>
+        <div class="explanation" id="explanationText">
+            计算结果：累积概率（蓝色阴影面积） = <span class="highlight-text" style="color: #2e7d32;">0.9750</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('probChart').getContext('2d');
+    let probChart;
+
+    // 分布配置参数
+    const distConfigs = {
+        'norm': { xMin: -4, xMax: 4, step: 0.05, defaultX: 1.96 },
+        't': { xMin: -5, xMax: 5, step: 0.05, defaultX: 2.228 },
+        'f': { xMin: 0, xMax: 6, step: 0.05, defaultX: 2.54 },
+        'chisq': { xMin: 0, xMax: 30, step: 0.2, defaultX: 15.0 }
+    };
+
+    // DOM 元素绑定
+    const els = {
+        distType: document.getElementById('distType'),
+        modeRadios: document.getElementsByName('calcMode'),
+        dfContainer: document.getElementById('dfContainer'),
+        df1Group: document.getElementById('df1Group'),
+        df2Group: document.getElementById('df2Group'),
+        df1Label: document.getElementById('df1Label'),
+        df1: document.getElementById('df1'),
+        df2: document.getElementById('df2'),
+        distSliderGroup: document.getElementById('distSliderGroup'),
+        invSliderGroup: document.getElementById('invSliderGroup'),
+        xSlider: document.getElementById('xSlider'),
+        pSlider: document.getElementById('pSlider'),
+        xValDisplay: document.getElementById('xValDisplay'),
+        pValDisplay: document.getElementById('pValDisplay'),
+        resultPanel: document.getElementById('resultPanel'),
+        excelFormula: document.getElementById('excelFormula'),
+        explanationText: document.getElementById('explanationText')
+    };
+
+    // 获取当前模式
+    function getMode() {
+        return Array.from(els.modeRadios).find(r => r.checked).value;
+    }
+
+    // 动态更新 UI 组件显隐
+    function updateUI() {
+        const type = els.distType.value;
+        const mode = getMode();
+
+        // 处理自由度显示
+        els.dfContainer.style.display = type === 'norm' ? 'none' : 'flex';
+        els.df1Group.style.display = type === 'norm' ? 'none' : 'flex';
+        els.df2Group.style.display = type === 'f' ? 'flex' : 'none';
+        els.df1Label.innerText = type === 'f' ? '分子自由度 (df1):' : '自由度 (df):';
+
+        // 处理滑块范围更新
+        const cfg = distConfigs[type];
+        els.xSlider.min = cfg.xMin;
+        els.xSlider.max = cfg.xMax;
+        
+        // 模式切换
+        if (mode === 'dist') {
+            els.distSliderGroup.style.display = 'flex';
+            els.invSliderGroup.style.display = 'none';
+            els.resultPanel.className = 'result-panel';
+        } else {
+            els.distSliderGroup.style.display = 'none';
+            els.invSliderGroup.style.display = 'flex';
+            els.resultPanel.className = 'result-panel inv-mode';
+        }
+
+        renderChart();
+    }
+
+    // 核心计算与渲染
+    function renderChart() {
+        const type = els.distType.value;
+        const mode = getMode();
+        const df1 = parseFloat(els.df1.value) || 1;
+        const df2 = parseFloat(els.df2.value) || 1;
+        const cfg = distConfigs[type];
+
+        let targetX, targetP;
+
+        // --- 1. 数据计算 ---
+        if (mode === 'dist') {
+            targetX = parseFloat(els.xSlider.value);
+            els.xValDisplay.innerText = targetX.toFixed(2);
+            
+            // 计算 P 值
+            if (type === 'norm') targetP = jStat.normal.cdf(targetX, 0, 1);
+            else if (type === 't') targetP = jStat.studentt.cdf(targetX, df1);
+            else if (type === 'f') targetP = targetX <= 0 ? 0 : jStat.centralF.cdf(targetX, df1, df2);
+            else if (type === 'chisq') targetP = targetX <= 0 ? 0 : jStat.chisquare.cdf(targetX, df1);
+
+        } else {
+            targetP = parseFloat(els.pSlider.value);
+            els.pValDisplay.innerText = (targetP * 100).toFixed(1) + '%';
+
+            // 反算 X 值
+            if (type === 'norm') targetX = jStat.normal.inv(targetP, 0, 1);
+            else if (type === 't') targetX = jStat.studentt.inv(targetP, df1);
+            else if (type === 'f') targetX = jStat.centralF.inv(targetP, df1, df2);
+            else if (type === 'chisq') targetX = jStat.chisquare.inv(targetP, df1);
+        }
+
+        // --- 2. 界面文本更新 ---
+        let formulaStr = "";
+        if (mode === 'dist') {
+            let xStr = targetX.toFixed(2);
+            if (type === 'norm') formulaStr = `=NORM.S.DIST(${xStr}, TRUE)`;
+            else if (type === 't') formulaStr = `=T.DIST(${xStr}, ${df1}, TRUE)`;
+            else if (type === 'f') formulaStr = `=F.DIST(${xStr}, ${df1}, ${df2}, TRUE)`;
+            else if (type === 'chisq') formulaStr = `=CHISQ.DIST(${xStr}, ${df1}, TRUE)`;
+            
+            els.excelFormula.innerText = formulaStr;
+            els.explanationText.innerHTML = `计算结果：对应的左尾累积概率 (P) = <span class="highlight-text" style="color: #2e7d32;">${targetP.toFixed(4)}</span>`;
+        } else {
+            let pStr = targetP.toFixed(3);
+            if (type === 'norm') formulaStr = `=NORM.S.INV(${pStr})`;
+            else if (type === 't') formulaStr = `=T.INV(${pStr}, ${df1})`;
+            else if (type === 'f') formulaStr = `=F.INV(${pStr}, ${df1}, ${df2})`;
+            else if (type === 'chisq') formulaStr = `=CHISQ.INV(${pStr}, ${df1})`;
+            
+            els.excelFormula.innerText = formulaStr;
+            els.explanationText.innerHTML = `计算结果：倒推出来的横轴分位点数值 (X) = <span class="highlight-text" style="color: #e65100;">${targetX.toFixed(4)}</span>`;
+        }
+
+        // --- 3. 图表渲染准备 ---
+        let labels = [];
+        let dataPDF = [];
+        let dataFill = [];
+        
+        let plotMaxX = cfg.xMax;
+        // 如果是卡方分布，根据自由度动态调整横轴范围使图像更好看
+        if (type === 'chisq') plotMaxX = Math.max(30, df1 * 3);
+        
+        let plotStep = (plotMaxX - cfg.xMin) / 200;
+
+        for (let x = cfg.xMin; x <= plotMaxX; x += plotStep) {
+            labels.push(x.toFixed(2));
+            let y = 0;
+            
+            if (type === 'norm') y = jStat.normal.pdf(x, 0, 1);
+            else if (type === 't') y = jStat.studentt.pdf(x, df1);
+            else if (type === 'f' && x > 0) y = jStat.centralF.pdf(x, df1, df2);
+            else if (type === 'chisq' && x > 0) y = jStat.chisquare.pdf(x, df1);
+
+            dataPDF.push(y);
+
+            // 填充面积逻辑
+            if (x <= targetX) {
+                dataFill.push(y);
+            } else {
+                dataFill.push(null);
+            }
+        }
+
+        const fillColor = mode === 'dist' ? 'rgba(76, 175, 80, 0.4)' : 'rgba(255, 152, 0, 0.4)';
+        const lineColor = mode === 'dist' ? '#2e7d32' : '#e65100';
+
+        if (probChart) {
+            probChart.data.labels = labels;
+            probChart.data.datasets[0].data = dataPDF;
+            probChart.data.datasets[1].data = dataFill;
+            probChart.data.datasets[1].backgroundColor = fillColor;
+            
+            // 垂直指示线
+            let lineData = Array(labels.length).fill(null);
+            let targetIdx = labels.findIndex(val => parseFloat(val) >= targetX);
+            if (targetIdx !== -1) {
+                lineData[targetIdx] = dataPDF[targetIdx];
+                probChart.data.datasets[2].data = lineData;
+                probChart.data.datasets[2].borderColor = lineColor;
+                probChart.data.datasets[2].pointBackgroundColor = lineColor;
+            } else {
+                 probChart.data.datasets[2].data = lineData;
+            }
+            probChart.update();
+        } else {
+            let initialLine = Array(labels.length).fill(null);
+            probChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '概率密度曲线',
+                            data: dataPDF,
+                            borderColor: '#78909c',
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0,
+                            zIndex: 2
+                        },
+                        {
+                            label: '累积概率面积',
+                            data: dataFill,
+                            borderColor: 'transparent',
+                            backgroundColor: fillColor,
+                            fill: 'origin',
+                            pointRadius: 0,
+                            zIndex: 1
+                        },
+                        {
+                            label: '目标分位点 X',
+                            data: initialLine,
+                            borderColor: lineColor,
+                            borderWidth: 2,
+                            showLine: false,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            zIndex: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { display: true, title: { display: true, text: '概率密度' } },
+                        x: { 
+                            title: { display: true, text: '随机变量数值 X' },
+                            ticks: { maxTicksLimit: 10 }
+                        }
+                    },
+                    plugins: { tooltip: { enabled: false } }
+                }
+            });
+        }
+    }
+
+    // 事件监听
+    els.distType.addEventListener('change', () => {
+        // 切换分布时，重置滑块到默认合理值
+        els.xSlider.value = distConfigs[els.distType.value].defaultX;
+        updateUI();
+    });
+    els.modeRadios.forEach(r => r.addEventListener('change', updateUI));
+    els.df1.addEventListener('input', renderChart);
+    els.df2.addEventListener('input', renderChart);
+    els.xSlider.addEventListener('input', renderChart);
+    els.pSlider.addEventListener('input', renderChart);
+
+    // 初始化
+    updateUI();
+</script>
+
+</body>
+</html>

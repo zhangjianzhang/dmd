@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>负指数分布概率（面积）演示器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .control-panel {
+            background: #f1f2f6;
+            padding: 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        label {
+            font-weight: bold;
+            font-size: 16px;
+            margin-right: 15px;
+        }
+        input[type="range"] {
+            width: 350px;
+            cursor: pointer;
+        }
+        .val-display {
+            font-weight: bold;
+            color: #e74c3c;
+            margin-left: 15px;
+            font-size: 16px;
+            width: 80px;
+        }
+        .result-box {
+            background-color: #fdf2e9;
+            border: 2px solid #e67e22;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .result-title {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .result-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #d35400;
+        }
+        .formula {
+            font-family: "Courier New", Courier, monospace;
+            color: #888;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📈 负指数分布面积（概率）演示器</h2>
+    <div class="subtitle">
+        业务设定：核心模块的平均无故障运行时间为 1000 小时 (即 λ = 0.001)
+    </div>
+    
+    <div class="control-panel">
+        <label>拖动选择观测时间 (x):</label>
+        <input type="range" id="timeSlider" min="0" max="3000" value="200" step="50">
+        <span class="val-display" id="timeVal">200 小时</span>
+    </div>
+
+    <canvas id="areaChart" width="800" height="400"></canvas>
+
+    <div class="result-box">
+        <div class="result-title">在选定时间内发生故障的累积概率（即上方高亮面积）为：</div>
+        <div class="result-value" id="probValue">18.13%</div>
+        <div class="formula">数学公式: F(x) = P(X ≤ x) = 1 - e^(-0.001 * x)</div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('areaChart').getContext('2d');
+    let areaChart;
+    
+    // 设定负指数分布的参数：平均寿命 1000小时 -> lambda = 1/1000 = 0.001
+    const lambda = 0.001; 
+
+    // 计算概率密度函数 PDF
+    function exponentialPDF(x, lam) {
+        return lam * Math.exp(-lam * x);
+    }
+
+    // 计算累积概率分布函数 CDF (即面积)
+    function exponentialCDF(x, lam) {
+        return 1 - Math.exp(-lam * x);
+    }
+
+    // 核心渲染与更新逻辑
+    function updateSimulator() {
+        // 1. 获取滑块当前的观测时间阈值
+        let targetX = parseInt(document.getElementById('timeSlider').value);
+        document.getElementById('timeVal').innerText = targetX + " 小时";
+
+        // 2. 准备绘图数据
+        let labels = [];
+        let dataFullCurve = [];     // 完整的 PDF 曲线
+        let dataHighlightArea = []; // 0 到 targetX 之间的高亮面积
+
+        let maxX = 3000; // X轴范围设为 0 到 3000
+        let step = 20;   // 采样步长
+
+        for (let x = 0; x <= maxX; x += step) {
+            labels.push(x);
+            let y = exponentialPDF(x, lambda);
+            dataFullCurve.push(y);
+
+            // 如果当前 x 在我们观测的时间区间内，则存入高亮数组，否则用 null 断开
+            if (x <= targetX) {
+                dataHighlightArea.push(y);
+            } else {
+                dataHighlightArea.push(null);
+            }
+        }
+
+        // 3. 计算真正的累积概率 (面积) 并更新界面文字
+        let probability = exponentialCDF(targetX, lambda);
+        document.getElementById('probValue').innerText = (probability * 100).toFixed(2) + '%';
+
+        // 4. 更新或初始化 Chart.js 图表
+        if (areaChart) {
+            areaChart.data.datasets[0].data = dataFullCurve;
+            areaChart.data.datasets[1].data = dataHighlightArea;
+            areaChart.update();
+        } else {
+            areaChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '概率密度曲线 f(x)',
+                            data: dataFullCurve,
+                            borderColor: '#7f8c8d',
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0,
+                            zIndex: 2
+                        },
+                        {
+                            label: '累积概率面积 P(X ≤ x)',
+                            data: dataHighlightArea,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(230, 126, 34, 0.5)', // 橙色半透明填充
+                            fill: 'origin', // 填充到 X 轴
+                            pointRadius: 0,
+                            zIndex: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: {
+                        duration: 0 // 关闭动画，让拖动滑块时面积变化做到实时跟随，没有延迟感
+                    },
+                    scales: {
+                        y: { 
+                            display: true,
+                            title: { display: true, text: '概率密度 f(x)' }
+                        },
+                        x: {
+                            title: { display: true, text: '运行时间 x (小时)' },
+                            ticks: { maxTicksLimit: 15 }
+                        }
+                    },
+                    plugins: {
+                        tooltip: { enabled: false }, // 禁用鼠标悬浮提示，让视觉焦点集中在面积上
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+    }
+
+    // 绑定事件：当滑块拖动时触发更新
+    document.getElementById('timeSlider').addEventListener('input', updateSimulator);
+    
+    // 页面首次加载时渲染一次
+    updateSimulator();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尾部概率可视分析器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .desc {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .control-panel {
+            background: #f1f2f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 20px;
+        }
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+        label {
+            font-weight: bold;
+            font-size: 15px;
+            color: #2c3e50;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            background: #fff;
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+        }
+        .radio-group label {
+            cursor: pointer;
+            font-weight: normal;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            background: #e3f2fd;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 1px solid #bbdefb;
+            flex-grow: 1;
+            max-width: 600px;
+        }
+        .slider-container input[type="range"] {
+            flex-grow: 1;
+            margin: 0 15px;
+            cursor: pointer;
+        }
+        .val-display {
+            font-weight: bold;
+            color: #1976d2;
+            min-width: 50px;
+            text-align: right;
+            font-size: 1.1em;
+        }
+        .result-panel {
+            background-color: #fdf2e9;
+            border: 2px solid #e67e22;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 25px;
+        }
+        .result-title {
+            font-size: 15px;
+            color: #555;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .result-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #d35400;
+            margin-bottom: 10px;
+        }
+        .explanation {
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: left;
+            border-left: 4px solid #e67e22;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎯 尾部概率 (Tail Probability) 可视分析器</h2>
+    <div class="desc">
+        以标准正态分布 (Z) 为例，观察不同业务视角下“极值风险”的面积切分方式。
+    </div>
+    
+    <div class="control-panel">
+        <div class="control-row">
+            <label>选择业务视角 (尾部类型)：</label>
+            <div class="radio-group">
+                <label><input type="radio" name="tailType" value="left" checked> 左尾 (Left Tail)</label>
+                <label><input type="radio" name="tailType" value="right"> 右尾 (Right Tail)</label>
+                <label><input type="radio" name="tailType" value="two"> 双尾 (Two Tails)</label>
+            </div>
+        </div>
+        
+        <div class="control-row">
+            <div class="slider-container">
+                <label>拖动设置临界值 Z：</label>
+                <input type="range" id="zSlider" min="-3.5" max="3.5" value="1.64" step="0.01">
+                <span class="val-display" id="zValDisplay">1.64</span>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="tailChart" width="800" height="350"></canvas>
+
+    <div class="result-panel">
+        <div class="result-title" id="formulaDisplay">P(X ≤ 1.64) = </div>
+        <div class="result-value" id="probDisplay">94.95%</div>
+        <div class="explanation" id="explanationDisplay">
+            <b>【左尾含义】</b> 表示取值小于等于临界值 Z 的累积概率。<br>
+            <b>【商业应用】</b> 常用于评估“底线风险”，例如：“这个月利润跌破 50 万的概率有多大？”或“零件厚度低于合格标准的残次率是多少？”。
+        </div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('tailChart').getContext('2d');
+    let tailChart;
+
+    const els = {
+        tailRadios: document.getElementsByName('tailType'),
+        zSlider: document.getElementById('zSlider'),
+        zValDisplay: document.getElementById('zValDisplay'),
+        formulaDisplay: document.getElementById('formulaDisplay'),
+        probDisplay: document.getElementById('probDisplay'),
+        explanationDisplay: document.getElementById('explanationDisplay')
+    };
+
+    function getTailType() {
+        return Array.from(els.tailRadios).find(r => r.checked).value;
+    }
+
+    function updateSimulator() {
+        let tailType = getTailType();
+        let z = parseFloat(els.zSlider.value);
+        let absZ = Math.abs(z);
+        
+        els.zValDisplay.innerText = z.toFixed(2);
+
+        let labels = [];
+        let dataPDF = [];
+        let dataFill = [];
+        
+        let minX = -4;
+        let maxX = 4;
+        let step = 0.02;
+
+        let prob = 0;
+
+        // 生成图表数据与计算概率
+        for (let x = minX; x <= maxX; x += step) {
+            // 解决 JS 浮点数精度问题
+            let curX = parseFloat(x.toFixed(2));
+            labels.push(curX);
+            
+            let y = jStat.normal.pdf(curX, 0, 1);
+            dataPDF.push(y);
+
+            // 面积填充逻辑
+            let inTail = false;
+            if (tailType === 'left' && curX <= z) {
+                inTail = true;
+            } else if (tailType === 'right' && curX >= z) {
+                inTail = true;
+            } else if (tailType === 'two' && (curX <= -absZ || curX >= absZ)) {
+                inTail = true;
+            }
+
+            if (inTail) {
+                dataFill.push(y);
+            } else {
+                dataFill.push(null);
+            }
+        }
+
+        // 使用 jStat 精确计算概率
+        if (tailType === 'left') {
+            prob = jStat.normal.cdf(z, 0, 1);
+            els.formulaDisplay.innerText = `P(X ≤ ${z.toFixed(2)}) = `;
+            els.explanationDisplay.innerHTML = `
+                <b>【左尾含义】</b> 表示取值小于或等于临界值的累积概率。<br>
+                <b>【商业应用】</b> 常用于评估“底线风险”，例如：“本月利润跌破目标的概率有多大？”或“产品厚度低于下限的残次率是多少？”。`;
+        } else if (tailType === 'right') {
+            prob = 1 - jStat.normal.cdf(z, 0, 1);
+            els.formulaDisplay.innerText = `P(X > ${z.toFixed(2)}) = `;
+            els.explanationDisplay.innerHTML = `
+                <b>【右尾含义】</b> 表示取值大于临界值的累积概率。<br>
+                <b>【商业应用】</b> 常用于评估“突破上限”的收益或风险，例如：“这次营销活动让销量翻倍的概率有多高？”或“服务器并发量超载导致宕机的风险有多大？”。`;
+        } else if (tailType === 'two') {
+            prob = 2 * jStat.normal.cdf(-absZ, 0, 1);
+            els.formulaDisplay.innerText = `P(|X| > ${absZ.toFixed(2)}) = `;
+            els.explanationDisplay.innerHTML = `
+                <b>【双尾含义】</b> 表示取值落在两个极端区域（不论正负）的总概率。<br>
+                <b>【商业应用】</b> 常用于“是否存在显著差异”的假设检验。例如：“更换新设备后，平均容量是否显著偏离了标准的 250ml？”（不管偏多还是偏少，只要偏离太多，就是品控失常）。`;
+        }
+
+        els.probDisplay.innerText = (prob * 100).toFixed(2) + '%';
+
+        // 渲染图表
+        if (tailChart) {
+            tailChart.data.labels = labels;
+            tailChart.data.datasets[0].data = dataPDF;
+            tailChart.data.datasets[1].data = dataFill;
+            tailChart.update();
+        } else {
+            tailChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '标准正态分布概率密度',
+                            data: dataPDF,
+                            borderColor: '#78909c',
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0,
+                            zIndex: 2
+                        },
+                        {
+                            label: '尾部概率面积 (Tail Probability)',
+                            data: dataFill,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(230, 126, 34, 0.6)', // 醒目的橙色
+                            fill: 'origin',
+                            pointRadius: 0,
+                            spanGaps: false, // 保证双尾中间断开
+                            zIndex: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { display: true, title: { display: true, text: '概率密度' } },
+                        x: { 
+                            title: { display: true, text: '统计量 Z 值' },
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    let xVal = parseFloat(this.getLabelForValue(value));
+                                    if(Number.isInteger(xVal)) return xVal;
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    plugins: { tooltip: { enabled: false } }
+                }
+            });
+        }
+    }
+
+    // 绑定事件
+    els.tailRadios.forEach(r => r.addEventListener('change', updateSimulator));
+    els.zSlider.addEventListener('input', updateSimulator);
+
+    // 初始化
+    updateSimulator();
+</script>
+
+</body>
+</html>

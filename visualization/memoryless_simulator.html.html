@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>负指数分布“无记忆性”几何演示器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .desc {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .control-panel {
+            background: #f1f2f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        label {
+            font-weight: bold;
+            font-size: 16px;
+            margin-right: 15px;
+        }
+        input[type="range"] {
+            width: 400px;
+            cursor: pointer;
+        }
+        .val-display {
+            font-weight: bold;
+            color: #0984e3;
+            margin-left: 15px;
+            font-size: 16px;
+            width: 80px;
+        }
+        .result-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .result-card {
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .result-card.baseline {
+            background-color: #fdf2e9;
+            border-color: #e67e22;
+        }
+        .result-title {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .result-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #1565c0;
+        }
+        .result-card.baseline .result-value {
+            color: #d35400;
+        }
+        .math-formula {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⏳ 负指数分布“无记忆性”几何演示器</h2>
+    <div class="desc">
+        设定：设备平均寿命为 1000 小时（λ = 0.001）。未来考察期固定为 200 小时。<br>
+        无论设备已经运行了多久，它在未来 200 小时内发生故障的“条件概率”始终等于全新设备的“绝对概率”。
+    </div>
+    
+    <div class="control-panel">
+        <label>已安全运行时间 (t):</label>
+        <input type="range" id="timeT" min="0" max="3000" value="1000" step="50">
+        <span class="val-display" id="timeTVal">1000 h</span>
+    </div>
+
+    <canvas id="memorylessChart" width="800" height="350"></canvas>
+
+    <div class="result-panel">
+        <div class="result-card baseline">
+            <div class="result-title">基准：全新设备在头 200 小时内故障的概率<br>(0 到 200 的面积占比)</div>
+            <div class="result-value" id="baseProb">18.13%</div>
+            <div class="math-formula">P(X ≤ 200) = 1 - e^(-0.001 * 200)</div>
+        </div>
+        <div class="result-card">
+            <div class="result-title">当前：已知存活 t 小时，接下来的 200 小时内故障的条件概率<br>(高亮面积 / t 之后的总尾巴面积)</div>
+            <div class="result-value" id="condProb">18.13%</div>
+            <div class="math-formula">P(t < X ≤ t+200 | X > t)</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('memorylessChart').getContext('2d');
+    let memoryChart;
+    const lambda = 0.001; // 对应平均寿命 1000 小时
+    const interval = 200; // 固定考察期 200 小时
+
+    // 负指数概率密度函数 PDF
+    function exponentialPDF(x, lam) {
+        return lam * Math.exp(-lam * x);
+    }
+
+    // 负指数累积分布函数 CDF
+    function exponentialCDF(x, lam) {
+        return 1 - Math.exp(-lam * x);
+    }
+
+    function updateSimulator() {
+        let t = parseInt(document.getElementById('timeT').value);
+        document.getElementById('timeTVal').innerText = t + " h";
+
+        let labels = [];
+        let dataAll = [];         // 完整的 PDF 曲线
+        let dataHighlight = [];   // 从 t 到 t+200 的高亮面积（分子）
+        let dataTail = [];        // 从 t 到无穷大的尾巴（分母，用浅色背景示意）
+        let dataBaseline = [];    // 从 0 到 200 的基准面积
+
+        let maxX = 4000; // X 轴最大值，保证能看到长尾
+        let step = 20;
+
+        for (let x = 0; x <= maxX; x += step) {
+            labels.push(x);
+            let y = exponentialPDF(x, lambda);
+            dataAll.push(y);
+
+            // 1. 基准面积 (0 到 200)
+            if (x >= 0 && x <= interval) {
+                dataBaseline.push(y);
+            } else {
+                dataBaseline.push(null);
+            }
+
+            // 2. 当前条件概率的分子：(t 到 t+200) 的高亮面积
+            if (x >= t && x <= (t + interval)) {
+                dataHighlight.push(y);
+            } else {
+                dataHighlight.push(null);
+            }
+
+            // 3. 当前条件概率的分母：(t 之后) 的所有面积
+            if (x >= t) {
+                dataTail.push(y);
+            } else {
+                dataTail.push(null);
+            }
+        }
+
+        // 计算数值
+        let probBase = exponentialCDF(interval, lambda); // 基准概率 P(X<=200)
+        
+        // 条件概率公式： P(t < X < t+200 | X > t) 
+        // = P(t < X < t+200) / P(X > t)
+        // = (CDF(t+200) - CDF(t)) / (1 - CDF(t))
+        let probNumerator = exponentialCDF(t + interval, lambda) - exponentialCDF(t, lambda);
+        let probDenominator = 1 - exponentialCDF(t, lambda);
+        let probCond = probDenominator > 0 ? probNumerator / probDenominator : 0;
+
+        // 由于浮点数精度问题，直接强制让显示结果与理论完全一致（因为理论上绝对相等）
+        // 这里真实计算出来的 probCond 也会无限接近 probBase
+        document.getElementById('baseProb').innerText = (probBase * 100).toFixed(2) + '%';
+        document.getElementById('condProb').innerText = (probCond * 100).toFixed(2) + '%';
+
+        // 渲染图表
+        if (memoryChart) {
+            memoryChart.data.datasets[1].data = dataTail;
+            memoryChart.data.datasets[2].data = dataHighlight;
+            memoryChart.data.datasets[3].data = dataBaseline;
+            
+            // 动态添加一条指示线，如果在 Chart.js 里直接画线比较麻烦，我们用一个特殊的点集来模拟垂直线
+            let lineData = Array(labels.length).fill(null);
+            let tIndex = labels.findIndex(val => val >= t);
+            if(tIndex !== -1) lineData[tIndex] = exponentialPDF(t, lambda);
+            memoryChart.data.datasets[4].data = lineData;
+
+            memoryChart.update();
+        } else {
+            memoryChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'PDF 曲线',
+                            data: dataAll,
+                            borderColor: '#7f8c8d',
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0,
+                            zIndex: 10
+                        },
+                        {
+                            label: '存活 t 小时后的总尾巴 (分母)',
+                            data: dataTail,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(236, 240, 241, 0.8)', // 浅灰色
+                            fill: 'origin',
+                            pointRadius: 0,
+                            zIndex: 1
+                        },
+                        {
+                            label: 't 到 t+200 的发生概率 (分子)',
+                            data: dataHighlight,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(33, 150, 243, 0.6)', // 蓝色
+                            fill: 'origin',
+                            pointRadius: 0,
+                            zIndex: 2
+                        },
+                        {
+                            label: '全新设备头 200 小时 (基准)',
+                            data: dataBaseline,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(230, 126, 34, 0.4)', // 橙色
+                            fill: 'origin',
+                            pointRadius: 0,
+                            borderDash: [5, 5],
+                            zIndex: 3
+                        },
+                        {
+                            label: '当前时间 t',
+                            data: Array(labels.length).fill(null), // 初始化空
+                            borderColor: '#e74c3c',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#e74c3c',
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            showLine: false,
+                            zIndex: 20
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { 
+                            display: true, 
+                            title: { display: true, text: '概率密度 f(x)' },
+                            suggestedMax: lambda * 1.1
+                        },
+                        x: {
+                            title: { display: true, text: '运行时间 x (小时)' },
+                            ticks: { maxTicksLimit: 20 }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if(context.datasetIndex === 4) return "当前已运行时间: " + t + " h";
+                                    return context.dataset.label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            // 初始化指示线
+            let lineData = Array(labels.length).fill(null);
+            let tIndex = labels.findIndex(val => val >= t);
+            if(tIndex !== -1) lineData[tIndex] = exponentialPDF(t, lambda);
+            memoryChart.data.datasets[4].data = lineData;
+            memoryChart.update();
+        }
+    }
+
+    document.getElementById('timeT').addEventListener('input', updateSimulator);
+    updateSimulator();
+</script>
+
+</body>
+</html>

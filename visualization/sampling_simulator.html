@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工抽样方法模拟器 (Excel 逻辑复现)</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", -apple-system, sans-serif;
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .desc {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .control-panel {
+            background: #f1f2f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        select, input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .summary-panel {
+            background-color: #e8f4f8;
+            border-left: 5px solid #3498db;
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .summary-title {
+            font-weight: bold;
+            color: #2980b9;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .summary-content {
+            font-size: 14px;
+            color: #555;
+        }
+        .highlight-warning {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+        .duplicate-row {
+            background-color: #ffeaa7 !important;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 员工抽样方法模拟器 (115人总体)</h2>
+    <div class="desc">
+        对比演示：<b>周期抽样</b>（无重复，固定间隔）与 <b>随机抽样</b>（模拟 Excel 默认的“放回”机制，可能产生重复样本）。<br>
+        总体规模设定为 115 人，这与我们讲义中的研究所案例保持一致。
+    </div>
+    
+    <div class="control-panel">
+        <div class="control-group">
+            <label for="sampleMethod">抽样方法：</label>
+            <select id="sampleMethod">
+                <option value="periodic">周期抽样 (无放回)</option>
+                <option value="random">随机抽样 (有放回)</option>
+            </select>
+        </div>
+        
+        <div class="control-group" id="periodicControls">
+            <label for="interval">周期间隔 (k)：</label>
+            <input type="number" id="interval" min="2" max="30" value="10">
+        </div>
+
+        <div class="control-group" id="randomControls" style="display: none;">
+            <label for="sampleSize">抽取样本数 (n)：</label>
+            <input type="number" id="sampleSize" min="5" max="50" value="15">
+        </div>
+
+        <button onclick="executeSampling()">执行抽样</button>
+    </div>
+
+    <div class="summary-panel" id="summaryPanel">
+        <div class="summary-title">等待执行抽样...</div>
+        <div class="summary-content">请选择参数并点击上方按钮。</div>
+    </div>
+
+    <div class="table-container">
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th>抽样次序</th>
+                    <th>员工序号 (ID)</th>
+                    <th>姓名</th>
+                    <th>部门</th>
+                    <th>月薪 (元)</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 1. 生成 115 名模拟员工数据
+    const departments = ['控制研究室', '通信研究室', '图形研究室', '光电研究室', '传动研究室'];
+    const firstNames = ['赵','钱','孙','李','周','吴','郑','王','冯','陈','褚','卫','蒋','沈','韩','杨','朱','秦','尤','许','何','吕','施','张','孔','曹','严','华','金','魏','陶','姜'];
+    const lastNames = ['伟','芳','娜','敏','静','丽','强','磊','军','洋','勇','艳','杰','娟','涛','明','超','秀英','霞','平','刚','桂英','建中','赛鹏','起杭','平原'];
+    
+    const population = [];
+    const totalPopulation = 115;
+
+    for (let i = 1; i <= totalPopulation; i++) {
+        let name = firstNames[Math.floor(Math.random() * firstNames.length)] + lastNames[Math.floor(Math.random() * lastNames.length)];
+        let dept = departments[Math.floor(Math.random() * departments.length)];
+        let salary = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
+        
+        population.push({
+            id: i,
+            name: name,
+            dept: dept,
+            salary: salary
+        });
+    }
+
+    // 2. UI 交互逻辑：切换控制面板
+    document.getElementById('sampleMethod').addEventListener('change', function() {
+        const method = this.value;
+        if (method === 'periodic') {
+            document.getElementById('periodicControls').style.display = 'flex';
+            document.getElementById('randomControls').style.display = 'none';
+        } else {
+            document.getElementById('periodicControls').style.display = 'none';
+            document.getElementById('randomControls').style.display = 'flex';
+        }
+    });
+
+    // 3. 核心抽样执行逻辑
+    function executeSampling() {
+        const method = document.getElementById('sampleMethod').value;
+        let sampleResults = [];
+        let summaryHtml = "";
+
+        if (method === 'periodic') {
+            // 周期抽样逻辑
+            const interval = parseInt(document.getElementById('interval').value);
+            if (isNaN(interval) || interval < 2) {
+                alert("请输入有效的周期间隔（最小为2）");
+                return;
+            }
+
+            // 从间隔位置开始，按照固定周期抽取
+            for (let i = interval - 1; i < population.length; i += interval) {
+                sampleResults.push(population[i]);
+            }
+
+            summaryHtml = `
+                <div class="summary-title">✅ 周期抽样完成</div>
+                <div class="summary-content">
+                    总体规模：${totalPopulation} 人 | 周期间隔：${interval} <br>
+                    实际抽取样本数：<b>${sampleResults.length}</b> 人。<br>
+                    特点：按照固定节奏抽取，<b>不会产生重复样本</b>，能保证样本均匀分布在整体数据中。
+                </div>
+            `;
+        } else {
+            // 随机抽样逻辑 (模拟 Excel 的放回抽样)
+            const n = parseInt(document.getElementById('sampleSize').value);
+            if (isNaN(n) || n < 1) {
+                alert("请输入有效的样本数");
+                return;
+            }
+
+            let idCounts = {};
+            let hasDuplicates = false;
+
+            for (let i = 0; i < n; i++) {
+                // 每次都从 0 到 114 中完全随机挑一个
+                let randomIndex = Math.floor(Math.random() * population.length);
+                let selectedEmp = population[randomIndex];
+                
+                // 记录出现次数，用于后续标黄重复项
+                idCounts[selectedEmp.id] = (idCounts[selectedEmp.id] || 0) + 1;
+                if (idCounts[selectedEmp.id] > 1) {
+                    hasDuplicates = true;
+                }
+
+                sampleResults.push(selectedEmp);
+            }
+
+            let dupMessage = hasDuplicates 
+                ? `<span class="highlight-warning">注意：本次抽样出现了重复人员（已用黄色高亮标出），这正是“有放回”抽样的典型特征。</span>` 
+                : "本次抽样恰好未出现重复人员。";
+
+            summaryHtml = `
+                <div class="summary-title">🎲 随机抽样 (有放回) 完成</div>
+                <div class="summary-content">
+                    总体规模：${totalPopulation} 人 | 设定抽取样本数：<b>${n}</b> 人。<br>
+                    特点：每次抽取都是独立随机的（与 Excel 工具默认逻辑一致）。<br>
+                    ${dupMessage}
+                </div>
+            `;
+        }
+
+        // 4. 渲染表格
+        renderTable(sampleResults, method);
+        document.getElementById('summaryPanel').innerHTML = summaryHtml;
+    }
+
+    // 渲染表格并处理高亮逻辑
+    function renderTable(samples, method) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = "";
+
+        // 用于统计随机抽样中的出现次数
+        let idFreq = {};
+        if (method === 'random') {
+            samples.forEach(emp => {
+                idFreq[emp.id] = (idFreq[emp.id] || 0) + 1;
+            });
+        }
+
+        samples.forEach((emp, index) => {
+            const tr = document.createElement('tr');
+            
+            // 如果是随机抽样且该ID出现次数大于1，则整行高亮
+            if (method === 'random' && idFreq[emp.id] > 1) {
+                tr.className = "duplicate-row";
+            }
+
+            tr.innerHTML = `
+                <td>第 ${index + 1} 次</td>
+                <td><b>${emp.id}</b></td>
+                <td>${emp.name}</td>
+                <td>${emp.dept}</td>
+                <td>¥ ${emp.salary}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+</script>
+
+</body>
+</html>

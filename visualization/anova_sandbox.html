@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全域电商 GMV 互动测试沙盘 (双因素方差分析)</title>
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$']] },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --bg-color: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-color: #1e293b;
+            --highlight-bg: #eff6ff;
+            --success-color: #16a34a;
+            --neutral-color: #64748b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .container {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+
+        .instruction {
+            background-color: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: var(--highlight-bg);
+            font-weight: 600;
+        }
+
+        .input-cell {
+            background-color: #fff;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+
+        .calculated {
+            background-color: #f1f5f9;
+            font-weight: 500;
+            color: var(--neutral-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge.significant {
+            background-color: #dcfce7;
+            color: var(--success-color);
+        }
+
+        .badge.insignificant {
+            background-color: #f1f5f9;
+            color: var(--neutral-color);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>全域电商 GMV 互动测试沙盘</h1>
+    <div class="container">
+        <div class="instruction">
+            <strong>操作指南：</strong> 请在下表中直接修改各“引流玩法 $\times$ 承接阵地”跑出的<strong>月度 GMV 数据（万元）</strong>。下方的方差分析结论将实时更新。
+        </div>
+
+        <h2>数据输入矩阵</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>流量承接阵地 &rarr;<br>营销引流玩法 &darr;</th>
+                    <th>抖音闭环小店</th>
+                    <th>天猫官方旗舰店</th>
+                    <th>微信私域小程序</th>
+                    <th>引流均值 (行)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th>短视频信息流投流</th>
+                    <td class="input-cell"><input type="number" id="c11" value="477" oninput="calculateANOVA()"></td>
+                    <td class="input-cell"><input type="number" id="c12" value="336" oninput="calculateANOVA()"></td>
+                    <td class="input-cell"><input type="number" id="c13" value="217" oninput="calculateANOVA()"></td>
+                    <td class="calculated" id="meanRow1">--</td>
+                </tr>
+                <tr>
+                    <th>KOC 图文种草分发</th>
+                    <td class="input-cell"><input type="number" id="c21" value="356" oninput="calculateANOVA()"></td>
+                    <td class="input-cell"><input type="number" id="c22" value="297" oninput="calculateANOVA()"></td>
+                    <td class="input-cell"><input type="number" id="c23" value="151" oninput="calculateANOVA()"></td>
+                    <td class="calculated" id="meanRow2">--</td>
+                </tr>
+                <tr>
+                    <th>承接均值 (列)</th>
+                    <td class="calculated" id="meanCol1">--</td>
+                    <td class="calculated" id="meanCol2">--</td>
+                    <td class="calculated" id="meanCol3">--</td>
+                    <td class="calculated" id="meanTotal" style="font-weight: bold; color: var(--primary-color);">--</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="container">
+        <h2>无重复双因素方差分析结果 ($\alpha = 0.05$)</h2>
+        <div class="results-grid">
+            <div style="border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;">
+                <h3 style="margin-top: 0;">行因素 (引流玩法)</h3>
+                <p>组间平方和 $\text{SSB(A)}$: <span id="ssbA">--</span></p>
+                <p>自由度 $\text{df}_1$: 1</p>
+                <p>统计量 $F_A$: <strong id="fStatA">--</strong></p>
+                <p>临界值 $F_{\text{crit}}$: 18.5128</p>
+                <p>业务结论: <span id="badgeA" class="badge">--</span></p>
+            </div>
+
+            <div style="border: 1px solid var(--border-color); padding: 16px; border-radius: 8px;">
+                <h3 style="margin-top: 0;">列因素 (承接阵地)</h3>
+                <p>组间平方和 $\text{SSB(B)}$: <span id="ssbB">--</span></p>
+                <p>自由度 $\text{df}_2$: 2</p>
+                <p>统计量 $F_B$: <strong id="fStatB">--</strong></p>
+                <p>临界值 $F_{\text{crit}}$: 19.0000</p>
+                <p>业务结论: <span id="badgeB" class="badge">--</span></p>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px; text-align: center; color: var(--neutral-color); font-size: 0.9em;">
+            <p>误差平方和 $\text{SSE}$: <span id="sse">--</span> (自由度 $\text{df}_{\text{error}} = 2$)</p>
+            <p>总平方和 $\text{SST}$: <span id="sst">--</span></p>
+        </div>
+    </div>
+
+    <script>
+        function calculateANOVA() {
+            // 1. 获取输入值
+            const data = [
+                [parseFloat(document.getElementById('c11').value) || 0, parseFloat(document.getElementById('c12').value) || 0, parseFloat(document.getElementById('c13').value) || 0],
+                [parseFloat(document.getElementById('c21').value) || 0, parseFloat(document.getElementById('c22').value) || 0, parseFloat(document.getElementById('c23').value) || 0]
+            ];
+
+            const rows = data.length; // a = 2
+            const cols = data[0].length; // b = 3
+
+            // 2. 计算各项均值
+            let sumTotal = 0;
+            let rowMeans = [0, 0];
+            let colMeans = [0, 0, 0];
+
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    sumTotal += data[i][j];
+                    rowMeans[i] += data[i][j];
+                    colMeans[j] += data[i][j];
+                }
+            }
+
+            const meanTotal = sumTotal / (rows * cols);
+            for(let i=0; i<rows; i++) rowMeans[i] /= cols;
+            for(let j=0; j<cols; j++) colMeans[j] /= rows;
+
+            // 更新 UI 中的均值
+            document.getElementById('meanRow1').innerText = rowMeans[0].toFixed(1);
+            document.getElementById('meanRow2').innerText = rowMeans[1].toFixed(1);
+            document.getElementById('meanCol1').innerText = colMeans[0].toFixed(1);
+            document.getElementById('meanCol2').innerText = colMeans[1].toFixed(1);
+            document.getElementById('meanCol3').innerText = colMeans[2].toFixed(1);
+            document.getElementById('meanTotal').innerText = meanTotal.toFixed(2);
+
+            // 3. 计算平方和 (SS)
+            let ssbA = 0; // 行因素 (引流玩法)
+            for (let i = 0; i < rows; i++) {
+                ssbA += Math.pow(rowMeans[i] - meanTotal, 2);
+            }
+            ssbA *= cols;
+
+            let ssbB = 0; // 列因素 (承接阵地)
+            for (let j = 0; j < cols; j++) {
+                ssbB += Math.pow(colMeans[j] - meanTotal, 2);
+            }
+            ssbB *= rows;
+
+            let sst = 0; // 总平方和
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    sst += Math.pow(data[i][j] - meanTotal, 2);
+                }
+            }
+
+            let sse = sst - ssbA - ssbB; // 误差平方和
+
+            // 处理精度问题导致的微小负数
+            if(sse < 0.0001) sse = 0;
+
+            // 4. 计算方差 (MS) 和 F 统计量
+            const dfA = rows - 1; // 1
+            const dfB = cols - 1; // 2
+            const dfE = (rows - 1) * (cols - 1); // 2
+
+            const msbA = ssbA / dfA;
+            const msbB = ssbB / dfB;
+            const mse = sse / dfE;
+
+            let fStatA = mse > 0 ? msbA / mse : 0;
+            let fStatB = mse > 0 ? msbB / mse : 0;
+
+            // 5. 固化临界值 (根据教材 F(0.05, df1, df2))
+            const fCritA = 18.5128; // F(0.05, 1, 2)
+            const fCritB = 19.0000; // F(0.05, 2, 2)
+
+            // 6. 更新 UI 结果
+            document.getElementById('ssbA').innerText = ssbA.toFixed(2);
+            document.getElementById('fStatA').innerText = fStatA.toFixed(4);
+            const badgeA = document.getElementById('badgeA');
+            if (fStatA > fCritA) {
+                badgeA.innerText = "有显著性差异";
+                badgeA.className = "badge significant";
+            } else {
+                badgeA.innerText = "不能确定显著性差异";
+                badgeA.className = "badge insignificant";
+            }
+
+            document.getElementById('ssbB').innerText = ssbB.toFixed(2);
+            document.getElementById('fStatB').innerText = fStatB.toFixed(4);
+            const badgeB = document.getElementById('badgeB');
+            if (fStatB > fCritB) {
+                badgeB.innerText = "有显著性差异";
+                badgeB.className = "badge significant";
+            } else {
+                badgeB.innerText = "不能确定显著性差异";
+                badgeB.className = "badge insignificant";
+            }
+
+            document.getElementById('sse').innerText = sse.toFixed(2);
+            document.getElementById('sst').innerText = sst.toFixed(2);
+        }
+
+        // 初始化计算
+        window.onload = calculateANOVA;
+    </script>
+</body>
+</html>
